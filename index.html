@@ -359,6 +359,48 @@
 
 .key.white .key-label { color: #888; }
 .key.black .key-label { color: #555; }
+/* ── Audio file upload ───────────────────────────────────────── */
+.upload-wrap {
+  margin-top: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.upload-label {
+  font-size: 0.55rem;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.upload-btn {
+  background: transparent;
+  border: 1px solid var(--dim);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.upload-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.upload-filename {
+  font-size: 0.6rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
 </style>
 </head>
 <body>
@@ -404,7 +446,13 @@
   <div class="waveform-card">
     <canvas id="waveCanvas"></canvas>
   </div>
-
+<!-- Audio file upload -->
+<div class="upload-wrap">
+  <span class="upload-label">Audio file</span>
+  <button class="upload-btn" onclick="document.getElementById('audioFileInput').click()">↑ Load MP3 / WAV</button>
+  <input id="audioFileInput" type="file" accept="audio/mp3,audio/wav,audio/*" style="display:none">
+  <span class="upload-filename" id="uploadFilename">No file loaded</span>
+</div>
   <button class="start-btn" id="startBtn" onclick="startAudio()">▶ &nbsp; Start microphone</button>
   <!-- Piano keyboard C4–C5 -->
 <div class="piano-wrap">
@@ -693,6 +741,55 @@ async function startAudio() {
     document.getElementById('pitchCard').classList.add('active');
   }
 })();
+// ── Audio file loader ─────────────────────────────────────────
+// Exposes `audioFile` object for future playback/loop/pitch steps.
+const audioFile = {
+  ctx:        null,   // AudioContext (created on first load)
+  buffer:     null,   // decoded AudioBuffer
+  source:     null,   // current BufferSourceNode (set on play)
+  gainNode:   null,   // master gain (set on load)
+  fileName:   null,   // original filename string
+  duration:   0,      // seconds
+};
+
+document.getElementById('audioFileInput').addEventListener('change', async function (e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  document.getElementById('uploadFilename').textContent = 'Loading…';
+
+  // Create (or reuse) a dedicated AudioContext for file playback
+  if (!audioFile.ctx) {
+    audioFile.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    audioFile.gainNode = audioFile.ctx.createGain();
+    audioFile.gainNode.connect(audioFile.ctx.destination);
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const decoded     = await audioFile.ctx.decodeAudioData(arrayBuffer);
+
+    audioFile.buffer   = decoded;
+    audioFile.duration = decoded.duration;
+    audioFile.fileName = file.name;
+
+    document.getElementById('uploadFilename').textContent =
+      file.name + '  ·  ' + formatDuration(decoded.duration);
+
+  } catch (err) {
+    document.getElementById('uploadFilename').textContent = 'Error decoding file';
+    console.error('Audio decode error:', err);
+  }
+
+  // Reset input so the same file can be re-loaded if needed
+  e.target.value = '';
+});
+
+function formatDuration(secs) {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60).toString().padStart(2, '0');
+  return m + ':' + s;
+}
 </script>
 </body>
 </html>
