@@ -476,6 +476,60 @@
 .scrub-slider:disabled::-webkit-slider-thumb {
   background: var(--muted);
 }
+/* ── A/B loop markers ────────────────────────────────────────── */
+.ab-wrap {
+  margin-top: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ab-btn {
+  background: transparent;
+  border: 1px solid var(--dim);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.ab-btn:hover    { border-color: var(--accent); color: var(--accent); }
+.ab-btn:disabled { border-color: var(--dim); color: var(--dim); cursor: default; }
+.ab-btn:disabled:hover { border-color: var(--dim); color: var(--dim); }
+
+.ab-btn.set { border-color: var(--accent); color: var(--accent); }
+
+.ab-display {
+  font-size: 0.6rem;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  flex: 1;
+  min-width: 0;
+}
+
+.ab-display span { color: var(--text); }
+
+.ab-clear {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.6rem;
+  cursor: pointer;
+  letter-spacing: 0.1em;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+.ab-clear:hover { color: var(--accent); }
 </style>
 </head>
 <body>
@@ -527,6 +581,13 @@
 <div class="playback-wrap">
   <!-- Scrub bar -->
 <div class="scrub-wrap">
+  <!-- A/B loop markers -->
+<div class="ab-wrap">
+  <button class="ab-btn" id="setABtn"   disabled onclick="setLoopPoint('A')">Set A</button>
+  <button class="ab-btn" id="setBBtn"   disabled onclick="setLoopPoint('B')">Set B</button>
+  <div class="ab-display" id="abDisplay">A: <span>—</span> &nbsp; B: <span>—</span></div>
+  <button class="ab-clear" id="abClear" onclick="clearLoopPoints()">✕ clear</button>
+</div>
   <input type="range" class="scrub-slider" id="scrubSlider"
          min="0" max="100" step="0.1" value="0" disabled>
 </div>
@@ -1024,6 +1085,62 @@ stopAudioFile = function () {
   _origStopAudioFile();
   scrubSlider.value = 0;
 };
+// ── A/B loop marker state ─────────────────────────────────────
+const loop = {
+  A: null,   // seconds | null
+  B: null,   // seconds | null
+};
+
+function setLoopPoint(point) {
+  if (!audioFile.buffer) return;
+
+  // Current playback position in seconds
+  const now = playback.isPlaying
+    ? audioFile.ctx.currentTime - playback.startedAt
+    : playback.pausedAt;
+
+  if (point === 'A') {
+    // If B is already set, don't allow A to be placed after it
+    if (loop.B !== null && now >= loop.B) return;
+    loop.A = now;
+    document.getElementById('setABtn').classList.add('set');
+
+  } else {
+    // If A is already set, don't allow B to be placed before it
+    if (loop.A !== null && now <= loop.A) return;
+    loop.B = now;
+    document.getElementById('setBBtn').classList.add('set');
+  }
+
+  updateAbDisplay();
+}
+
+function clearLoopPoints() {
+  loop.A = null;
+  loop.B = null;
+  document.getElementById('setABtn').classList.remove('set');
+  document.getElementById('setBBtn').classList.remove('set');
+  updateAbDisplay();
+}
+
+function updateAbDisplay() {
+  const aText = loop.A !== null ? formatDuration(loop.A) : '—';
+  const bText = loop.B !== null ? formatDuration(loop.B) : '—';
+  const spans = document.getElementById('abDisplay').querySelectorAll('span');
+  spans[0].textContent = aText;
+  spans[1].textContent = bText;
+}
+
+// Enable A/B buttons when a file is loaded (piggyback on upload event)
+document.getElementById('audioFileInput').addEventListener('change', () => {
+  setTimeout(() => {
+    if (audioFile.buffer) {
+      document.getElementById('setABtn').disabled = false;
+      document.getElementById('setBBtn').disabled = false;
+      clearLoopPoints(); // reset markers on new file
+    }
+  }, 360); // just after scrub bar's 350ms timeout
+});
 </script>
 </body>
 </html>
