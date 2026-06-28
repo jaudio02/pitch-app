@@ -440,6 +440,42 @@
   letter-spacing: 0.1em;
   min-width: 90px;
 }
+/* ── Scrub bar ───────────────────────────────────────────────── */
+.scrub-wrap {
+  margin-top: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 14px 20px;
+}
+
+.scrub-slider {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.scrub-slider:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.scrub-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.scrub-slider:disabled::-webkit-slider-thumb {
+  background: var(--muted);
+}
 </style>
 </head>
 <body>
@@ -489,6 +525,11 @@
 <div class="upload-wrap">
   <!-- Playback controls -->
 <div class="playback-wrap">
+  <!-- Scrub bar -->
+<div class="scrub-wrap">
+  <input type="range" class="scrub-slider" id="scrubSlider"
+         min="0" max="100" step="0.1" value="0" disabled>
+</div>
   <button class="play-btn" id="playPauseBtn" disabled onclick="togglePlayback()">▶ Play</button>
   <span class="playback-time" id="playbackTime">0:00 / 0:00</span>
 </div>
@@ -926,6 +967,63 @@ function updatePlaybackTime(elapsed) {
   document.getElementById('playbackTime').textContent =
     formatDuration(elapsed) + ' / ' + formatDuration(audioFile.duration);
 }
+// ── Scrub bar ─────────────────────────────────────────────────
+const scrubSlider = document.getElementById('scrubSlider');
+let isScrubbing = false;
+
+// User starts dragging
+scrubSlider.addEventListener('mousedown',  () => { isScrubbing = true; });
+scrubSlider.addEventListener('touchstart', () => { isScrubbing = true; }, { passive: true });
+
+// User releases — seek to new position
+scrubSlider.addEventListener('mouseup',  commitScrub);
+scrubSlider.addEventListener('touchend', commitScrub);
+
+function commitScrub() {
+  if (!audioFile.buffer) return;
+  const wasPlaying = playback.isPlaying;
+  if (wasPlaying) pauseAudioFile();
+  playback.pausedAt = (scrubSlider.value / 100) * audioFile.duration;
+  isScrubbing = false;
+  if (wasPlaying) playAudioFile();
+  updatePlaybackTime(playback.pausedAt);
+}
+
+// Patch the clock so it also drives the scrub slider
+const _origStartClock = startClock;
+startClock = function () {
+  _origStartClock();
+  // Piggyback on the existing 250ms interval via a parallel one
+  playback.scrubTimerId = setInterval(() => {
+    if (!playback.isPlaying || isScrubbing) return;
+    const elapsed = audioFile.ctx.currentTime - playback.startedAt;
+    scrubSlider.value = Math.min((elapsed / audioFile.duration) * 100, 100);
+  }, 250);
+};
+
+const _origStopClock = stopClock;
+stopClock = function () {
+  _origStopClock();
+  clearInterval(playback.scrubTimerId);
+};
+
+// Enable slider and reset when a new file loads
+const _scrubFileInput = document.getElementById('audioFileInput');
+_scrubFileInput.addEventListener('change', () => {
+  setTimeout(() => {
+    if (audioFile.buffer) {
+      scrubSlider.disabled = false;
+      scrubSlider.value = 0;
+    }
+  }, 350); // slightly after the upload handler's own 300ms timeout
+});
+
+// Reset slider when playback reaches natural end
+const _origStopAudioFile = stopAudioFile;
+stopAudioFile = function () {
+  _origStopAudioFile();
+  scrubSlider.value = 0;
+};
 </script>
 </body>
 </html>
