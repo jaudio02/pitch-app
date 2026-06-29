@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Pitch Detector</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Bebas+Neue&display=swap');
@@ -11,7 +11,6 @@
 
   :root {
     --bg: #0a0a0f;
-    --panel: #111118;
     --border: #1e1e2e;
     --accent: #e8ff47;
     --dim: #3a3a50;
@@ -19,17 +18,18 @@
     --muted: #555570;
   }
 
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Space Mono', monospace;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
+ body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;        /* ← was center; centering clips overflow */
+  overflow-x: hidden;                 /* ← was overflow:hidden; allow y scrolling */
+  padding: 40px 0 60px;              /* ← top breathing room + bottom safe gap */
+}
 
   /* Grain overlay */
   body::before {
@@ -42,12 +42,13 @@
     opacity: 0.4;
   }
 
-  .wrapper {
-    width: min(480px, 92vw);
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
+ .wrapper {
+  width: min(480px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: env(safe-area-inset-bottom, 16px); /* ← Android/iOS notch safety */
+}
 
   header {
     display: flex;
