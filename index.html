@@ -1142,6 +1142,22 @@ document.getElementById('audioFileInput').addEventListener('change', () => {
     }
   }, 360); // just after scrub bar's 350ms timeout
 });
+// ── A/B loop engine ───────────────────────────────────────────
+let abLoopEnabled = true;
+
+setInterval(() => {
+  if (!abLoopEnabled) return;
+  if (!playback.isPlaying) return;
+  if (loop.A === null || loop.B === null) return;
+
+  const now = audioFile.ctx.currentTime - playback.startedAt;
+
+  if (now >= loop.B) {
+    pauseAudioFile();
+    playback.pausedAt = loop.A;
+    playAudioFile();
+  }
+}, 100);
 </script>
 </body>
 </html>
